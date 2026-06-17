@@ -1,14 +1,14 @@
 // context_profiles.js
 function renderProfileContext(panel) {
+  if (!panel) return;
   const linkedin_url = window.location.href.split('?')[0];
 
-  // --- Extract Profile Name ---
+  // ── Profile Name Extraction ──────────────────────────────────────────
   let profile_name = "";
   let headline = "";
 
   if (document.title) {
-    let cleanTitle = document.title.replace(/^\(\d+\)\s*/, "");
-    cleanTitle = cleanTitle.replace(" | LinkedIn", "").trim();
+    let cleanTitle = document.title.replace(/^\(\d+\)\s*/, "").replace(" | LinkedIn", "").trim();
     if (cleanTitle.includes(" - ")) {
       const parts = cleanTitle.split(" - ");
       profile_name = parts[0].trim();
@@ -20,7 +20,7 @@ function renderProfileContext(panel) {
 
   if (!profile_name || profile_name === "LinkedIn" || profile_name === "Feed") {
     const h1s = document.querySelectorAll('h1');
-    for (let h of h1s) {
+    for (const h of h1s) {
       if (h.innerText && h.innerText.trim().length > 0) {
         profile_name = h.innerText.trim();
         break;
@@ -29,7 +29,8 @@ function renderProfileContext(panel) {
   }
 
   if (!headline) {
-    const h2 = document.querySelector('.text-body-medium') || document.querySelector('.pv-text-details__left-panel .text-body-medium');
+    const h2 = document.querySelector('.text-body-medium') ||
+                document.querySelector('.pv-text-details__left-panel .text-body-medium');
     if (h2 && h2.innerText) headline = h2.innerText.trim();
   }
 
@@ -52,11 +53,10 @@ function renderProfileContext(panel) {
     currentCompany = parts[1].trim();
   }
 
-  profile_name = profile_name.replace(/"/g, '&quot;');
-  currentRole = currentRole.replace(/"/g, '&quot;');
-  currentCompany = currentCompany.replace(/"/g, '&quot;');
+  // Escape for HTML attributes
+  const safe = (s) => (s || "").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // Show skeleton while loading
+  // ── Skeleton while loading ────────────────────────────────────────────
   panel.innerHTML = window.getPanelShell(`
     <div style="padding: 4px 0;">
       <div class="ri-skeleton" style="height: 24px; width: 50%; margin-bottom: 8px; border-radius: 6px;"></div>
@@ -67,9 +67,9 @@ function renderProfileContext(panel) {
     </div>
   `);
 
-  // --- Fetch dashboard data (existing referrals for this profile) ---
+  // ── Fetch dashboard (existing referrals for this person) ─────────────
   chrome.runtime.sendMessage({ type: "FETCH_DASHBOARD" }, (dashRes) => {
-    if (chrome.runtime.lastError) return;
+    if (chrome.runtime.lastError || !panel) return;
 
     let candidateReferrals = [];
     if (dashRes && dashRes.success && dashRes.data) {
@@ -79,167 +79,165 @@ function renderProfileContext(panel) {
       );
     }
 
-    // --- Fetch top 3 latest jobs for initial dropdown ---
+    // ── Fetch top 3 latest jobs for pre-fill ──────────────────────────
     chrome.runtime.sendMessage({ type: "FETCH_JOBS", payload: { limit: 3 } }, (jobsRes) => {
-      if (chrome.runtime.lastError) return;
+      if (chrome.runtime.lastError || !panel) return;
 
-      let initialJobs = [];
-      if (jobsRes && jobsRes.success && jobsRes.data) {
-        initialJobs = jobsRes.data;
-      }
+      const initialJobs = (jobsRes && jobsRes.success && Array.isArray(jobsRes.data)) ? jobsRes.data : [];
 
-      // --- Build Active Pipelines HTML ---
+      // ── Build Active Pipelines HTML ────────────────────────────────
       let pipelinesHTML = "";
       if (candidateReferrals.length > 0) {
         let refsHTML = "";
-        for (let i = 0; i < candidateReferrals.length; i++) {
-          const r = candidateReferrals[i];
+        for (const r of candidateReferrals) {
           const connStatus = r.connection_status || "Pending";
           const refStatus = r.status || "";
-
-          // Connection status badge: Pending or Connected
           const connBadgeClass = connStatus === "Connected" ? "badge-green" : "badge-orange";
-
-          // Referral status badge: Logged, Messaged, Referred, Follow-Up
           let refBadgeClass = "badge-gray";
           if (refStatus === "Referred") refBadgeClass = "badge-green";
           else if (refStatus === "Messaged") refBadgeClass = "badge-blue";
-          else if (refStatus === "Logged") refBadgeClass = "badge-gray";
 
           refsHTML += `
-            <div style="background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                <div>
-                  <div style="font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 2px;">${r.company_name || ''}</div>
-                  <div style="font-size: 12px; color: var(--muted);">${r.role_title || ''}</div>
-                </div>
+            <div style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;">
+              <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px;">${safe(r.company_name)}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${safe(r.role_title)}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <span class="badge ${connBadgeClass}">&#128279; ${connStatus}</span>
+                ${refStatus ? `<span class="badge ${refBadgeClass}">&#128203; ${refStatus}</span>` : ''}
               </div>
-              <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                <span class="badge ${connBadgeClass}" title="Connection Status">🔗 ${connStatus}</span>
-                ${refStatus ? `<span class="badge ${refBadgeClass}" title="Referral Status">📋 ${refStatus}</span>` : ''}
-              </div>
-            </div>
-          `;
+            </div>`;
         }
         pipelinesHTML = `
-          <div style="margin-bottom: 24px;">
-            <div style="font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Active Pipelines</div>
+          <div style="margin-bottom:24px;">
+            <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em;">Active Pipelines</div>
             ${refsHTML}
           </div>
-          <div style="width: 100%; height: 1px; background: var(--line); margin-bottom: 24px;"></div>
-        `;
+          <div style="width:100%;height:1px;background:var(--line);margin-bottom:24px;"></div>`;
       }
 
-      // --- Build the latest job string for pre-fill ---
+      // ── Pre-fill the latest job ────────────────────────────────────
       const latestJob = initialJobs.length > 0 ? initialJobs[0] : null;
       const latestJobStr = latestJob
         ? `${latestJob.company_name || 'Unknown'} - ${latestJob.role_title || 'Unknown'}`
         : "";
-      const latestJobId = latestJob ? latestJob.id : "";
+      const latestJobId = latestJob ? String(latestJob.id) : "";
 
+      // ── Render the full panel ──────────────────────────────────────
       panel.innerHTML = window.getPanelShell(`
         ${pipelinesHTML}
-        <div style="margin-bottom: 24px;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Log Outreach</div>
+        <div style="margin-bottom:24px;">
+          <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em;">Log Outreach</div>
           <div class="ri-form-group">
             <label class="ri-label">Candidate Name</label>
-            <input id="ri-prof-name" class="ri-input" value="${profile_name}" autocomplete="off" />
+            <input id="ri-prof-name" class="ri-input" value="${safe(profile_name)}" autocomplete="off" />
           </div>
-          <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-            <div class="ri-form-group" style="flex: 1; margin-bottom: 0;">
+          <div style="display:flex;gap:12px;margin-bottom:16px;">
+            <div class="ri-form-group" style="flex:1;margin-bottom:0;">
               <label class="ri-label">Current Role</label>
-              <input id="ri-prof-role" class="ri-input" placeholder="e.g. Engineer" value="${currentRole}" autocomplete="off" />
+              <input id="ri-prof-role" class="ri-input" placeholder="e.g. Engineer" value="${safe(currentRole)}" autocomplete="off" />
             </div>
-            <div class="ri-form-group" style="flex: 1; margin-bottom: 0;">
+            <div class="ri-form-group" style="flex:1;margin-bottom:0;">
               <label class="ri-label">Current Company</label>
-              <input id="ri-prof-company" class="ri-input" placeholder="e.g. Acme" value="${currentCompany}" autocomplete="off" />
+              <input id="ri-prof-company" class="ri-input" placeholder="e.g. Acme" value="${safe(currentCompany)}" autocomplete="off" />
             </div>
           </div>
-
           <div class="ri-form-group">
             <label class="ri-label">Role Pitching</label>
-            <div class="ri-dropdown" id="ri-prof-job-dropdown">
-              <input type="hidden" id="ri-prof-job-id" value="${latestJobId}" />
-              <input type="text" id="ri-prof-job-search" class="ri-input" placeholder="Select or search role..." autocomplete="off" value="${latestJobStr}" />
-              <div class="ri-dropdown-menu" id="ri-prof-job-menu"></div>
+            <div id="ri-prof-job-dropdown" style="position:relative;">
+              <input type="hidden" id="ri-prof-job-id" value="${safe(latestJobId)}" />
+              <input type="text" id="ri-prof-job-search" class="ri-input" placeholder="Select or search role..." autocomplete="off" />
+              <div id="ri-prof-job-menu" class="ri-dropdown-menu"></div>
             </div>
           </div>
-
-          <button id="ri-prof-log-btn" class="ri-btn ri-btn-primary" style="width: 100%;">
+          <button id="ri-prof-log-btn" class="ri-btn ri-btn-primary" style="width:100%;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             Log Candidate
           </button>
-
           <div id="ri-status" class="ri-status"></div>
         </div>
       `);
 
-      // --- Dropdown logic ---
-      const searchEl = document.getElementById("ri-prof-job-search");
-      const menu = document.getElementById("ri-prof-job-menu");
-      const idInput = document.getElementById("ri-prof-job-id");
+      // ── Get direct DOM references immediately after render ─────────
+      const searchEl = panel.querySelector("#ri-prof-job-search");
+      const menu     = panel.querySelector("#ri-prof-job-menu");
+      const idInput  = panel.querySelector("#ri-prof-job-id");
+      const dropdown = panel.querySelector("#ri-prof-job-dropdown");
+      const btn      = panel.querySelector("#ri-prof-log-btn");
+      const statusEl = panel.querySelector("#ri-status");
 
-      // Render items returned from API into the dropdown menu
+      // Set pre-filled value directly via JS (not HTML attribute, avoids encoding issues)
+      if (searchEl && latestJobStr) searchEl.value = latestJobStr;
+
+      // ── Dropdown: render job items ─────────────────────────────────
       function renderItems(jobs) {
         if (!menu) return;
         menu.innerHTML = "";
         if (!jobs || jobs.length === 0) {
-          menu.innerHTML = `<div class="ri-dropdown-item"><span style="color:var(--muted);font-size:12px;">No jobs found</span></div>`;
+          const empty = document.createElement("div");
+          empty.className = "ri-dropdown-item";
+          empty.innerHTML = `<span style="color:var(--muted);font-size:12px;">No jobs found</span>`;
+          menu.appendChild(empty);
           return;
         }
-        jobs.forEach(job => {
+        for (const job of jobs) {
           const div = document.createElement("div");
           div.className = "ri-dropdown-item";
           const dateStr = new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const label = `${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}`;
           div.innerHTML = `
-            <span class="ri-dropdown-item-title">${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}</span>
-            <span class="ri-dropdown-item-date">${dateStr}</span>
-          `;
-          div.addEventListener("mousedown", () => {
-            const idEl = document.getElementById("ri-prof-job-id");
-            const sEl = document.getElementById("ri-prof-job-search");
-            if (idEl) idEl.value = job.id;
-            if (sEl) sEl.value = `${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}`;
+            <span class="ri-dropdown-item-title">${label}</span>
+            <span class="ri-dropdown-item-date">${dateStr}</span>`;
+          // mousedown fires before blur, so selection works without fighting focus loss
+          div.addEventListener("mousedown", (e) => {
+            e.preventDefault(); // prevent search box from losing focus and closing menu
+            if (idInput) idInput.value = String(job.id);
+            if (searchEl) searchEl.value = label;
             if (menu) menu.classList.remove("open");
           });
           menu.appendChild(div);
-        });
+        }
       }
 
-      // Show initial 3 jobs immediately on focus (no API call needed)
-      function showInitialDropdown() {
-        renderItems(initialJobs);
+      function openDropdown() {
         if (menu) menu.classList.add("open");
       }
 
-      // Debounced API search
+      function closeDropdown() {
+        if (menu) menu.classList.remove("open");
+      }
+
+      // Show the 3 pre-fetched jobs instantly (no API call)
+      function showInitialDropdown() {
+        renderItems(initialJobs);
+        openDropdown();
+      }
+
+      // Debounced live API search
       let searchTimer = null;
       function searchJobs(query) {
         if (searchTimer) clearTimeout(searchTimer);
         if (!menu) return;
-
-        // Show loading state
         menu.innerHTML = `<div class="ri-dropdown-item"><span style="color:var(--muted);font-size:12px;">Searching...</span></div>`;
-        menu.classList.add("open");
-
+        openDropdown();
         searchTimer = setTimeout(() => {
-          chrome.runtime.sendMessage({ type: "FETCH_JOBS", payload: { q: query, limit: 10 } }, (res) => {
-            if (chrome.runtime.lastError) return;
-            renderItems(res && res.success ? res.data : []);
-          });
+          if (chrome.runtime && chrome.runtime.sendMessage) {
+            chrome.runtime.sendMessage({ type: "FETCH_JOBS", payload: { q: query, limit: 10 } }, (res) => {
+              if (chrome.runtime.lastError) return;
+              renderItems(res && res.success && Array.isArray(res.data) ? res.data : []);
+            });
+          }
         }, 300);
       }
 
       if (searchEl) {
         searchEl.addEventListener("focus", () => {
           searchEl.select();
-          // If box has the pre-selected value, show initial top-3; otherwise search what's typed
-          const currentVal = searchEl.value.trim();
-          const isPreselected = latestJobStr && currentVal === latestJobStr;
-          if (!currentVal || isPreselected) {
+          const val = searchEl.value.trim();
+          // If empty or still showing the auto-filled latest job, show top-3
+          if (!val || val === latestJobStr) {
             showInitialDropdown();
           } else {
-            searchJobs(currentVal);
+            searchJobs(val);
           }
         });
 
@@ -252,76 +250,70 @@ function renderProfileContext(panel) {
           }
         });
 
-        document.addEventListener("click", (e) => {
-          const dropdown = document.getElementById("ri-prof-job-dropdown");
+        // Close dropdown when clicking outside — scoped to panel, not entire document
+        panel.addEventListener("click", (e) => {
           if (dropdown && !dropdown.contains(e.target)) {
-            if (menu) menu.classList.remove("open");
+            closeDropdown();
           }
         });
       }
 
-      // --- Log Candidate button ---
-      const btn = document.getElementById("ri-prof-log-btn");
+      // ── Log Candidate button ───────────────────────────────────────
       if (btn) {
         btn.addEventListener("click", () => {
-          const status = document.getElementById("ri-status");
-          const jobIdEl = document.getElementById("ri-prof-job-id");
-          const job_id = jobIdEl ? parseInt(jobIdEl.value) : 0;
-          const nameEl = document.getElementById("ri-prof-name");
-          const roleEl = document.getElementById("ri-prof-role");
-          const compEl = document.getElementById("ri-prof-company");
-          const final_name = nameEl ? nameEl.value.trim() : "";
-          const final_role = roleEl ? roleEl.value.trim() : "";
-          const final_company = compEl ? compEl.value.trim() : "";
-          const current_url = window.location.href.split('?')[0];
+          const job_id = idInput ? parseInt(idInput.value, 10) : 0;
+          const final_name    = panel.querySelector("#ri-prof-name")    ? panel.querySelector("#ri-prof-name").value.trim()    : "";
+          const final_role    = panel.querySelector("#ri-prof-role")    ? panel.querySelector("#ri-prof-role").value.trim()    : "";
+          const final_company = panel.querySelector("#ri-prof-company") ? panel.querySelector("#ri-prof-company").value.trim() : "";
 
-          if (!status) return;
+          if (!statusEl) return;
 
           if (isNaN(job_id) || job_id === 0) {
-            status.innerText = "Please select a valid role from the dropdown.";
-            status.className = "ri-status ri-error";
+            statusEl.innerText = "Please select a valid role from the dropdown.";
+            statusEl.className = "ri-status ri-error";
             return;
           }
           if (!final_name) {
-            status.innerText = "Candidate Name is required.";
-            status.className = "ri-status ri-error";
+            statusEl.innerText = "Candidate Name is required.";
+            statusEl.className = "ri-status ri-error";
             return;
           }
 
           btn.disabled = true;
-          status.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Logging candidate...`;
-          status.className = "ri-status ri-loading";
+          statusEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Logging candidate...`;
+          statusEl.className = "ri-status ri-loading";
 
           chrome.runtime.sendMessage({
             type: "LOG_OUTREACH",
             payload: {
               job_posting_id: job_id,
-              linkedin_url: current_url,
-              profile_name: final_name,
+              linkedin_url:   window.location.href.split('?')[0],
+              profile_name:   final_name,
               current_company: final_company,
-              current_role: final_role
+              current_role:   final_role
             }
           }, (res) => {
             if (chrome.runtime.lastError) {
               btn.disabled = false;
-              status.innerText = "Extension error. Please refresh.";
-              status.className = "ri-status ri-error";
+              statusEl.innerText = "Extension error. Please refresh the page.";
+              statusEl.className = "ri-status ri-error";
               return;
             }
             btn.disabled = false;
             if (res && res.success) {
-              status.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Candidate Logged`;
-              status.className = "ri-status ri-success";
-              setTimeout(() => { window.renderProfileContext(document.getElementById("ri-panel")); }, 1000);
+              statusEl.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Candidate Logged`;
+              statusEl.className = "ri-status ri-success";
+              const panelEl = document.getElementById("ri-panel");
+              if (panelEl) setTimeout(() => window.renderProfileContext(panelEl), 1200);
             } else {
-              status.innerText = res ? res.error : "Network error";
-              status.className = "ri-status ri-error";
+              statusEl.innerText = (res && res.error) ? res.error : "Network error. Try again.";
+              statusEl.className = "ri-status ri-error";
             }
           });
         });
       }
-    });
-  });
+    }); // end FETCH_JOBS
+  }); // end FETCH_DASHBOARD
 }
 
 window.renderProfileContext = renderProfileContext;
