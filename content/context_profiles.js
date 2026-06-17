@@ -1,16 +1,14 @@
 // context_profiles.js
 function renderProfileContext(panel) {
-  const linkedin_url = window.location.href.split('?')[0]; 
-  
-  // Robust Profile Name Extraction
+  const linkedin_url = window.location.href.split('?')[0];
+
+  // --- Extract Profile Name ---
   let profile_name = "";
   let headline = "";
-  
+
   if (document.title) {
-    // Remove notification counts like "(3) "
     let cleanTitle = document.title.replace(/^\(\d+\)\s*/, "");
     cleanTitle = cleanTitle.replace(" | LinkedIn", "").trim();
-    
     if (cleanTitle.includes(" - ")) {
       const parts = cleanTitle.split(" - ");
       profile_name = parts[0].trim();
@@ -20,7 +18,6 @@ function renderProfileContext(panel) {
     }
   }
 
-  // Backup method for name: Find the first visible h1 with text
   if (!profile_name || profile_name === "LinkedIn" || profile_name === "Feed") {
     const h1s = document.querySelectorAll('h1');
     for (let h of h1s) {
@@ -30,8 +27,7 @@ function renderProfileContext(panel) {
       }
     }
   }
-  
-  // Backup method for headline
+
   if (!headline) {
     const h2 = document.querySelector('.text-body-medium') || document.querySelector('.pv-text-details__left-panel .text-body-medium');
     if (h2 && h2.innerText) headline = h2.innerText.trim();
@@ -41,7 +37,7 @@ function renderProfileContext(panel) {
 
   let currentRole = headline;
   let currentCompany = "";
-  
+
   if (headline.includes(" at ")) {
     const parts = headline.split(" at ");
     currentRole = parts[0].trim();
@@ -56,11 +52,11 @@ function renderProfileContext(panel) {
     currentCompany = parts[1].trim();
   }
 
-  // Sanitize for HTML attributes
   profile_name = profile_name.replace(/"/g, '&quot;');
   currentRole = currentRole.replace(/"/g, '&quot;');
   currentCompany = currentCompany.replace(/"/g, '&quot;');
 
+  // Show skeleton while loading
   panel.innerHTML = window.getPanelShell(`
     <div style="padding: 4px 0;">
       <div class="ri-skeleton" style="height: 24px; width: 50%; margin-bottom: 8px; border-radius: 6px;"></div>
@@ -71,70 +67,60 @@ function renderProfileContext(panel) {
     </div>
   `);
 
-  window.markAccepted = function(referralId, btnElement) {
-    btnElement.innerHTML = '<span class="spin" style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;"></span>';
-    btnElement.disabled = true;
-    chrome.runtime.sendMessage({ 
-      type: "UPDATE_REFERRAL_STATUS", 
-      payload: { referral_request_id: referralId, status: "Accepted" } 
-    }, (res) => {
-      if (chrome.runtime.lastError) {
-        btnElement.innerHTML = 'Error';
-        btnElement.disabled = false;
-        return;
-      }
-      if (res && res.success) {
-        btnElement.innerHTML = '✓ Accepted';
-        btnElement.style.background = 'var(--green)';
-        btnElement.style.color = '#fff';
-        btnElement.style.border = 'none';
-        setTimeout(() => { window.renderProfileContext(document.getElementById("ri-panel")); }, 1000);
-      } else {
-        btnElement.innerHTML = 'Error';
-        btnElement.disabled = false;
-      }
-    });
-  };
-
+  // --- Fetch dashboard data (existing referrals for this profile) ---
   chrome.runtime.sendMessage({ type: "FETCH_DASHBOARD" }, (dashRes) => {
     if (chrome.runtime.lastError) return;
+
     let candidateReferrals = [];
     if (dashRes && dashRes.success && dashRes.data) {
-      candidateReferrals = dashRes.data.filter(r => r && r.linkedin_url && r.linkedin_url.split('?')[0].replace(/\/$/, "") === linkedin_url.replace(/\/$/, ""));
+      const cleanURL = linkedin_url.replace(/\/$/, "");
+      candidateReferrals = dashRes.data.filter(r =>
+        r && r.linkedin_url && r.linkedin_url.split('?')[0].replace(/\/$/, "") === cleanURL
+      );
     }
 
-    chrome.runtime.sendMessage({ type: "FETCH_JOBS" }, (jobsRes) => {
+    // --- Fetch top 3 latest jobs for initial dropdown ---
+    chrome.runtime.sendMessage({ type: "FETCH_JOBS", payload: { limit: 3 } }, (jobsRes) => {
       if (chrome.runtime.lastError) return;
-      let allJobs = [];
+
+      let initialJobs = [];
       if (jobsRes && jobsRes.success && jobsRes.data) {
-        allJobs = jobsRes.data;
-        allJobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        initialJobs = jobsRes.data;
       }
 
+      // --- Build Active Pipelines HTML ---
       let pipelinesHTML = "";
       if (candidateReferrals.length > 0) {
         let refsHTML = "";
         for (let i = 0; i < candidateReferrals.length; i++) {
           const r = candidateReferrals[i];
-          const badgeClass = r.status === 'Referred' ? 'badge-green' : (r.status === 'Pending' ? 'badge-orange' : 'badge-gray');
-          const actionHTML = r.status === 'Pending' 
-            ? `<button class="ri-btn ri-accept-btn" style="padding: 6px 12px; font-size: 12px; height: auto; width: auto;" data-referral-id="${r.referral_id}">Mark Accepted</button>`
-            : `<span style="font-size: 12px; color: var(--muted); font-weight: 500;">✓ Active</span>`;
-            
+          const connStatus = r.connection_status || "Pending";
+          const refStatus = r.status || "";
+
+          // Connection status badge: Pending or Connected
+          const connBadgeClass = connStatus === "Connected" ? "badge-green" : "badge-orange";
+
+          // Referral status badge: Logged, Messaged, Referred, Follow-Up
+          let refBadgeClass = "badge-gray";
+          if (refStatus === "Referred") refBadgeClass = "badge-green";
+          else if (refStatus === "Messaged") refBadgeClass = "badge-blue";
+          else if (refStatus === "Logged") refBadgeClass = "badge-gray";
+
           refsHTML += `
-            <div style="background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <div style="font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 2px;">${r.company_name}</div>
-                <div style="font-size: 12px; color: var(--muted); margin-bottom: 6px;">${r.role_title}</div>
-                <span class="badge ${badgeClass}">${r.status}</span>
+            <div style="background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <div>
+                  <div style="font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 2px;">${r.company_name || ''}</div>
+                  <div style="font-size: 12px; color: var(--muted);">${r.role_title || ''}</div>
+                </div>
               </div>
-              <div>
-                ${actionHTML}
+              <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <span class="badge ${connBadgeClass}" title="Connection Status">🔗 ${connStatus}</span>
+                ${refStatus ? `<span class="badge ${refBadgeClass}" title="Referral Status">📋 ${refStatus}</span>` : ''}
               </div>
             </div>
           `;
         }
-
         pipelinesHTML = `
           <div style="margin-bottom: 24px;">
             <div style="font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Active Pipelines</div>
@@ -143,6 +129,13 @@ function renderProfileContext(panel) {
           <div style="width: 100%; height: 1px; background: var(--line); margin-bottom: 24px;"></div>
         `;
       }
+
+      // --- Build the latest job string for pre-fill ---
+      const latestJob = initialJobs.length > 0 ? initialJobs[0] : null;
+      const latestJobStr = latestJob
+        ? `${latestJob.company_name || 'Unknown'} - ${latestJob.role_title || 'Unknown'}`
+        : "";
+      const latestJobId = latestJob ? latestJob.id : "";
 
       panel.innerHTML = window.getPanelShell(`
         ${pipelinesHTML}
@@ -162,42 +155,39 @@ function renderProfileContext(panel) {
               <input id="ri-prof-company" class="ri-input" placeholder="e.g. Acme" value="${currentCompany}" autocomplete="off" />
             </div>
           </div>
-          
+
           <div class="ri-form-group">
             <label class="ri-label">Role Pitching</label>
             <div class="ri-dropdown" id="ri-prof-job-dropdown">
-              <input type="hidden" id="ri-prof-job-id" value="" />
-              <input type="text" id="ri-prof-job-search" class="ri-input" placeholder="Select or search role..." autocomplete="off" />
+              <input type="hidden" id="ri-prof-job-id" value="${latestJobId}" />
+              <input type="text" id="ri-prof-job-search" class="ri-input" placeholder="Select or search role..." autocomplete="off" value="${latestJobStr}" />
               <div class="ri-dropdown-menu" id="ri-prof-job-menu"></div>
             </div>
           </div>
-          
+
           <button id="ri-prof-log-btn" class="ri-btn ri-btn-primary" style="width: 100%;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             Log Candidate
           </button>
-          
+
           <div id="ri-status" class="ri-status"></div>
         </div>
       `);
 
+      // --- Dropdown logic ---
       const searchEl = document.getElementById("ri-prof-job-search");
       const menu = document.getElementById("ri-prof-job-menu");
       const idInput = document.getElementById("ri-prof-job-id");
 
-      const renderDropdown = (query) => {
+      // Render items returned from API into the dropdown menu
+      function renderItems(jobs) {
+        if (!menu) return;
         menu.innerHTML = "";
-        let filtered = allJobs;
-        if (query) {
-          const q = query.toLowerCase();
-          filtered = allJobs.filter(j => {
-            const comp = j.company_name || "";
-            const role = j.role_title || "";
-            return comp.toLowerCase().includes(q) || role.toLowerCase().includes(q);
-          });
+        if (!jobs || jobs.length === 0) {
+          menu.innerHTML = `<div class="ri-dropdown-item"><span style="color:var(--muted);font-size:12px;">No jobs found</span></div>`;
+          return;
         }
-        
-        filtered.forEach(job => {
+        jobs.forEach(job => {
           const div = document.createElement("div");
           div.className = "ri-dropdown-item";
           const dateStr = new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -206,53 +196,87 @@ function renderProfileContext(panel) {
             <span class="ri-dropdown-item-date">${dateStr}</span>
           `;
           div.addEventListener("mousedown", () => {
-            let idEl = document.getElementById("ri-prof-job-id");
-            let searchEl = document.getElementById("ri-prof-job-search");
+            const idEl = document.getElementById("ri-prof-job-id");
+            const sEl = document.getElementById("ri-prof-job-search");
             if (idEl) idEl.value = job.id;
-            if (searchEl) searchEl.value = `${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}`;
+            if (sEl) sEl.value = `${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}`;
             if (menu) menu.classList.remove("open");
           });
           menu.appendChild(div);
         });
-      };
-
-      if (allJobs.length > 0) {
-        const latestJob = allJobs[0];
-        if (idInput) idInput.value = latestJob.id;
-        if (searchEl) searchEl.value = `${latestJob.company_name || 'Unknown'} - ${latestJob.role_title || 'Unknown'}`;
       }
 
-      renderDropdown("");
+      // Show initial 3 jobs immediately on focus (no API call needed)
+      function showInitialDropdown() {
+        renderItems(initialJobs);
+        if (menu) menu.classList.add("open");
+      }
+
+      // Debounced API search
+      let searchTimer = null;
+      function searchJobs(query) {
+        if (searchTimer) clearTimeout(searchTimer);
+        if (!menu) return;
+
+        // Show loading state
+        menu.innerHTML = `<div class="ri-dropdown-item"><span style="color:var(--muted);font-size:12px;">Searching...</span></div>`;
+        menu.classList.add("open");
+
+        searchTimer = setTimeout(() => {
+          chrome.runtime.sendMessage({ type: "FETCH_JOBS", payload: { q: query, limit: 10 } }, (res) => {
+            if (chrome.runtime.lastError) return;
+            renderItems(res && res.success ? res.data : []);
+          });
+        }, 300);
+      }
 
       if (searchEl) {
         searchEl.addEventListener("focus", () => {
-          renderDropdown(searchEl.value);
-          menu.classList.add("open");
+          searchEl.select();
+          // If box has the pre-selected value, show initial top-3; otherwise search what's typed
+          const currentVal = searchEl.value.trim();
+          const isPreselected = latestJobStr && currentVal === latestJobStr;
+          if (!currentVal || isPreselected) {
+            showInitialDropdown();
+          } else {
+            searchJobs(currentVal);
+          }
         });
 
         searchEl.addEventListener("input", (e) => {
-          renderDropdown(e.target.value);
-          menu.classList.add("open");
+          const val = e.target.value.trim();
+          if (!val) {
+            showInitialDropdown();
+          } else {
+            searchJobs(val);
+          }
         });
 
         document.addEventListener("click", (e) => {
           const dropdown = document.getElementById("ri-prof-job-dropdown");
           if (dropdown && !dropdown.contains(e.target)) {
-            menu.classList.remove("open");
+            if (menu) menu.classList.remove("open");
           }
         });
       }
 
+      // --- Log Candidate button ---
       const btn = document.getElementById("ri-prof-log-btn");
       if (btn) {
         btn.addEventListener("click", () => {
           const status = document.getElementById("ri-status");
-          const job_id = parseInt(document.getElementById("ri-prof-job-id").value);
-          const final_name = document.getElementById("ri-prof-name").value.trim();
-          const final_role = document.getElementById("ri-prof-role").value.trim();
-          const final_company = document.getElementById("ri-prof-company").value.trim();
+          const jobIdEl = document.getElementById("ri-prof-job-id");
+          const job_id = jobIdEl ? parseInt(jobIdEl.value) : 0;
+          const nameEl = document.getElementById("ri-prof-name");
+          const roleEl = document.getElementById("ri-prof-role");
+          const compEl = document.getElementById("ri-prof-company");
+          const final_name = nameEl ? nameEl.value.trim() : "";
+          const final_role = roleEl ? roleEl.value.trim() : "";
+          const final_company = compEl ? compEl.value.trim() : "";
           const current_url = window.location.href.split('?')[0];
-          
+
+          if (!status) return;
+
           if (isNaN(job_id) || job_id === 0) {
             status.innerText = "Please select a valid role from the dropdown.";
             status.className = "ri-status ri-error";
@@ -268,15 +292,15 @@ function renderProfileContext(panel) {
           status.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Logging candidate...`;
           status.className = "ri-status ri-loading";
 
-          chrome.runtime.sendMessage({ 
-            type: "LOG_OUTREACH", 
-            payload: { 
-              job_posting_id: job_id, 
-              linkedin_url: current_url, 
+          chrome.runtime.sendMessage({
+            type: "LOG_OUTREACH",
+            payload: {
+              job_posting_id: job_id,
+              linkedin_url: current_url,
               profile_name: final_name,
               current_company: final_company,
               current_role: final_role
-            } 
+            }
           }, (res) => {
             if (chrome.runtime.lastError) {
               btn.disabled = false;
@@ -286,7 +310,7 @@ function renderProfileContext(panel) {
             }
             btn.disabled = false;
             if (res && res.success) {
-              status.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Candidate Tracked`;
+              status.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Candidate Logged`;
               status.className = "ri-status ri-success";
               setTimeout(() => { window.renderProfileContext(document.getElementById("ri-panel")); }, 1000);
             } else {

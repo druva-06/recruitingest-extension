@@ -48,7 +48,7 @@ new_code = """panel.innerHTML = window.getPanelShell(\`
       candidateReferrals = dashRes.data.filter(r => r && r.linkedin_url && r.linkedin_url.split('?')[0].replace(/\/$/, "") === linkedin_url.replace(/\/$/, ""));
     }
 
-    chrome.runtime.sendMessage({ type: "FETCH_JOBS" }, (jobsRes) => {
+    chrome.runtime.sendMessage({ type: "FETCH_JOBS", payload: { limit: 3 } }, (jobsRes) => {
       if (chrome.runtime.lastError) return;
       let allJobs = [];
       if (jobsRes && jobsRes.success && jobsRes.data) {
@@ -130,35 +130,48 @@ new_code = """panel.innerHTML = window.getPanelShell(\`
       const menu = document.getElementById("ri-prof-job-menu");
       const idInput = document.getElementById("ri-prof-job-id");
 
+      
+      let dropdownTimer = null;
       const renderDropdown = (query) => {
-        menu.innerHTML = "";
-        let filtered = allJobs;
-        if (query) {
-          const q = query.toLowerCase();
-          filtered = allJobs.filter(j => {
-            const comp = j.company_name || "";
-            const role = j.role_title || "";
-            return comp.toLowerCase().includes(q) || role.toLowerCase().includes(q);
-          });
-        }
+        if (dropdownTimer) clearTimeout(dropdownTimer);
         
-        filtered.forEach(job => {
-          const div = document.createElement("div");
-          div.className = "ri-dropdown-item";
-          const dateStr = new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          div.innerHTML = \`
-            <span class="ri-dropdown-item-title">${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}</span>
-            <span class="ri-dropdown-item-date">${dateStr}</span>
-          \`;
-          div.addEventListener("mousedown", () => {
-            let idEl = document.getElementById("ri-prof-job-id");
-            let searchEl = document.getElementById("ri-prof-job-search");
-            if (idEl) idEl.value = job.id;
-            if (searchEl) searchEl.value = \`${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}\`;
-            if (menu) menu.classList.remove("open");
+        let currentSelectedString = searchEl ? searchEl.value : "";
+        if (query && query === currentSelectedString) {
+          query = "";
+        }
+
+        dropdownTimer = setTimeout(() => {
+          if (menu) menu.innerHTML = \`<div class="ri-dropdown-item"><span style="color:var(--muted)">Loading...</span></div>\`;
+          chrome.runtime.sendMessage({ type: "FETCH_JOBS", payload: { q: query, limit: query ? 10 : 3 } }, (res) => {
+            if (chrome.runtime.lastError) return;
+            if (res && res.success && menu) {
+              const jobs = res.data || [];
+              menu.innerHTML = "";
+              if (jobs.length === 0) {
+                 menu.innerHTML = \`<div class="ri-dropdown-item"><span style="color:var(--muted)">No jobs found</span></div>\`;
+                 return;
+              }
+              
+              jobs.forEach(job => {
+                const div = document.createElement("div");
+                div.className = "ri-dropdown-item";
+                const dateStr = new Date(job.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                div.innerHTML = \`
+                  <span class="ri-dropdown-item-title">${job.company_name || "Unknown"} - ${job.role_title || "Unknown"}</span>
+                  <span class="ri-dropdown-item-date">${dateStr}</span>
+                \`;
+                div.addEventListener("mousedown", () => {
+                  let idEl = document.getElementById("ri-prof-job-id");
+                  let sEl = document.getElementById("ri-prof-job-search");
+                  if (idEl) idEl.value = job.id;
+                  if (sEl) sEl.value = \`${job.company_name || "Unknown"} - ${job.role_title || "Unknown"}\`;
+                  if (menu) menu.classList.remove("open");
+                });
+                menu.appendChild(div);
+              });
+            }
           });
-          menu.appendChild(div);
-        });
+        }, 250);
       };
 
       if (allJobs.length > 0) {
@@ -171,6 +184,7 @@ new_code = """panel.innerHTML = window.getPanelShell(\`
 
       if (searchEl) {
         searchEl.addEventListener("focus", () => {
+          searchEl.select();
           renderDropdown(searchEl.value);
           menu.classList.add("open");
         });

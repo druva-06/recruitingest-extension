@@ -10,7 +10,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === "FETCH_JOBS") {
-    fetch(`${API_BASE}/crm/jobs`, { credentials: "include" })
+    const payload = request.payload || {};
+    let url = `${API_BASE}/crm/jobs`;
+    const params = new URLSearchParams();
+    if (payload.q) params.append("q", payload.q);
+    if (payload.limit) params.append("limit", payload.limit);
+    if (params.toString()) url += "?" + params.toString();
+
+    fetch(url, { credentials: "include" })
       .then(res => res.json())
       .then(data => sendResponse({ success: true, data: data.job_postings }))
       .catch(err => sendResponse({ success: false, error: err.message }));

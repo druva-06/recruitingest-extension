@@ -117,7 +117,8 @@ function renderJobContext(panel) {
 
       if (existingJob) {
         jobStats.logged = existingJob.referrals.length;
-        jobStats.accepted = existingJob.referrals.filter(r => ['Accepted', 'Messaged', 'Referred'].includes(r.status)).length;
+        // connected = profiles where connection_status is Connected
+        jobStats.accepted = existingJob.referrals.filter(r => r.connection_status === 'Connected').length;
         jobStats.messaged = existingJob.referrals.filter(r => ['Messaged', 'Referred'].includes(r.status)).length;
         jobStats.referred = existingJob.referrals.filter(r => r.status === 'Referred').length;
       }
@@ -137,7 +138,7 @@ function renderJobContext(panel) {
             <span style="font-size: 20px; font-weight: 700; color: var(--ink);">${jobStats.logged}</span>
           </div>
           <div style="display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 600; letter-spacing: 0.05em;">Accepted</span>
+            <span style="font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 600; letter-spacing: 0.05em;">Connected</span>
             <span style="font-size: 20px; font-weight: 700; color: var(--ink);">${jobStats.accepted}</span>
           </div>
           <div style="display: flex; flex-direction: column; gap: 4px;">
