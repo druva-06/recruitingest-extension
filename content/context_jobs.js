@@ -81,8 +81,17 @@ function renderJobContext(panel) {
     </div>
   `);
 
-  chrome.runtime.sendMessage({ type: "FETCH_DASHBOARD" }, (res) => {
-    if (chrome.runtime.lastError) return;
+  window.riSend({ type: "FETCH_DASHBOARD" }, (res, fetchErr) => {
+    if (fetchErr) {
+      panel.innerHTML = window.getPanelShell(`
+        <div style="padding:20px 0;text-align:center;">
+          <div style="font-size:28px;margin-bottom:12px;">&#x1F504;</div>
+          <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px;">Extension Reconnecting</div>
+          <div style="font-size:13px;color:var(--muted);">Please <strong>refresh this page</strong> to reconnect.</div>
+        </div>
+      `);
+      return;
+    }
     let existingJob = null;
     let jobStats = { logged: 0, accepted: 0, messaged: 0, referred: 0 };
 
@@ -182,37 +191,42 @@ function renderJobContext(panel) {
         <div id="ri-status" class="ri-status"></div>
       `);
 
-      document.getElementById("ri-job-btn").addEventListener("click", () => {
-        const btn = document.getElementById("ri-job-btn");
-        const status = document.getElementById("ri-status");
-        const comp = document.getElementById("ri-job-company").value.trim();
-        const role = document.getElementById("ri-job-role").value.trim();
-        const urlVal = document.getElementById("ri-job-url").value.trim();
-        
+      const btn    = panel.querySelector("#ri-job-btn");
+      const status  = panel.querySelector("#ri-status");
+      const compEl  = panel.querySelector("#ri-job-company");
+      const roleEl  = panel.querySelector("#ri-job-role");
+      const urlEl   = panel.querySelector("#ri-job-url");
+
+      if (btn) btn.addEventListener("click", () => {
+        const comp   = compEl ? compEl.value.trim() : "";
+        const role   = roleEl ? roleEl.value.trim() : "";
+        const urlVal = urlEl  ? urlEl.value.trim()  : "";
+
         if (!comp || !role) {
-          status.innerText = "Company and Role are required.";
-          status.className = "ri-status ri-error";
+          if (status) { status.innerText = "Company and Role are required."; status.className = "ri-status ri-error"; }
           return;
         }
-        
+
         btn.disabled = true;
-        status.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Saving...`;
-        status.className = "ri-status ri-loading";
-        
-        chrome.runtime.sendMessage({ type: "CREATE_JOB", payload: { company_name: comp, role_title: role, job_url: urlVal } }, (res) => {
-          if (chrome.runtime.lastError) {
-            btn.disabled = false;
-            status.innerText = "Extension error. Please refresh.";
+        if (status) {
+          status.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Saving...`;
+          status.className = "ri-status ri-loading";
+        }
+
+        window.riSend({ type: "CREATE_JOB", payload: { company_name: comp, role_title: role, job_url: urlVal } }, (res, err) => {
+          btn.disabled = false;
+          if (!status) return;
+          if (err) {
+            status.innerText = "Extension error — please refresh the page.";
             status.className = "ri-status ri-error";
             return;
           }
-          btn.disabled = false;
           if (res && res.success) {
             status.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Successfully Saved`;
             status.className = "ri-status ri-success";
             setTimeout(window.closePanel, 2000);
           } else {
-            status.innerText = res ? res.error : "Network error";
+            status.innerText = (res && res.error) ? res.error : "Network error";
             status.className = "ri-status ri-error";
           }
         });

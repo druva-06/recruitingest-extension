@@ -27,10 +27,10 @@ function renderConnectionsContext(panel) {
     status.innerText = "Syncing with database...";
     status.className = "ri-status ri-loading";
 
-    chrome.runtime.sendMessage({ type: "BATCH_UPDATE", payload: { linkedin_urls: urls } }, (res) => {
-      if (chrome.runtime.lastError) {
+    window.riSend({ type: "BATCH_UPDATE", payload: { linkedin_urls: urls } }, (res, err) => {
+      if (err) {
         btn.disabled = false;
-        status.innerText = "Extension error. Please refresh.";
+        status.innerText = "Extension error — please refresh the page.";
         status.className = "ri-status ri-error";
         return;
       }

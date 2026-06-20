@@ -90,3 +90,32 @@ window.closePanel = closePanel;
 window.getPanelShell = getPanelShell;
 window.renderPanelContext = renderPanelContext;
 window.isPanelOpen = () => isPanelOpen;
+
+/**
+ * riSend — safe chrome.runtime.sendMessage wrapper.
+ *
+ * chrome.runtime.sendMessage THROWS SYNCHRONOUSLY with "Extension context
+ * invalidated" when the extension is reloaded without refreshing the page.
+ * Checking chrome.runtime.lastError inside the callback is not enough —
+ * the throw happens before the callback is ever invoked.
+ *
+ * Usage:
+ *   window.riSend({ type: "FETCH_DASHBOARD" }, (res, err) => {
+ *     if (err) { // show friendly error; return }
+ *     // use res
+ *   });
+ */
+window.riSend = function(message, callback) {
+  try {
+    chrome.runtime.sendMessage(message, (response) => {
+      const err = chrome.runtime.lastError
+        ? chrome.runtime.lastError.message
+        : null;
+      if (callback) callback(response, err);
+    });
+  } catch (e) {
+    // Context invalidated — pass the error to the callback so callers can
+    // show a "please refresh the page" message instead of crashing.
+    if (callback) callback(null, e.message || "Extension context invalidated");
+  }
+};

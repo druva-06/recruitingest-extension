@@ -1,6 +1,15 @@
 const API_BASE = "http://localhost:8080/api/v1";
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === "FETCH_PROFILE_REFERRALS") {
+    const url = encodeURIComponent(request.payload.url || "");
+    fetch(`${API_BASE}/crm/profile-referrals?url=${url}`, { credentials: "include" })
+      .then(res => res.json())
+      .then(data => sendResponse({ success: true, data: data.referrals || [] }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (request.type === "FETCH_DASHBOARD") {
     fetch(`${API_BASE}/crm/dashboard`, { credentials: "include" })
       .then(res => res.json())
