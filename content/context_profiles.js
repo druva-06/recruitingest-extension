@@ -55,13 +55,13 @@ function renderProfileContext(panel) {
     currentCompany = parts[1].trim();
   }
 
-  // ── Helper: show "please refresh" error inside the panel ──────────────
+  // ── Error state helper ────────────────────────────────────────────────
   function showContextError() {
     panel.innerHTML = window.getPanelShell(`
       <div style="padding:20px 0;text-align:center;">
         <div style="font-size:28px;margin-bottom:12px;">&#x1F504;</div>
         <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px;">Extension Reconnecting</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.5;">Please <strong>refresh this page</strong> (Cmd+R) to reconnect the extension after it was reloaded.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.5;">Please <strong>refresh this page</strong> (Cmd+R) to reconnect the extension.</div>
       </div>
     `);
   }
@@ -71,13 +71,13 @@ function renderProfileContext(panel) {
     <div style="padding:4px 0;">
       <div class="ri-skeleton" style="height:24px;width:50%;margin-bottom:8px;border-radius:6px;"></div>
       <div class="ri-skeleton" style="height:16px;width:85%;margin-bottom:24px;border-radius:4px;"></div>
-      <div class="ri-skeleton" style="height:44px;width:100%;border-radius:6px;margin-bottom:16px;"></div>
+      <div class="ri-skeleton" style="height:80px;width:100%;border-radius:8px;margin-bottom:12px;"></div>
       <div class="ri-skeleton" style="height:44px;width:100%;border-radius:6px;margin-bottom:16px;"></div>
       <div class="ri-skeleton" style="height:44px;width:100%;border-radius:6px;"></div>
     </div>
   `);
 
-  // ── Step 1: Fetch referrals for this specific profile URL ────────────
+  // ── Step 1: Fetch referrals for this specific profile URL ─────────────
   window.riSend({ type: "FETCH_PROFILE_REFERRALS", payload: { url: linkedin_url } }, (profRes, profErr) => {
     if (!panel) return;
     if (profErr) { showContextError(); return; }
@@ -86,7 +86,7 @@ function renderProfileContext(panel) {
       ? profRes.data
       : [];
 
-    // ── Step 2: Fetch top 3 latest jobs ───────────────────────────────
+    // ── Step 2: Fetch top 3 latest jobs for the "Log Outreach" dropdown ──
     window.riSend({ type: "FETCH_JOBS", payload: { limit: 3 } }, (jobsRes, jobsErr) => {
       if (!panel) return;
       if (jobsErr) { showContextError(); return; }
@@ -95,43 +95,85 @@ function renderProfileContext(panel) {
         ? jobsRes.data
         : [];
 
-      // ── Build Active Pipelines section ────────────────────────────
+      // ── Build Active Pipelines section ────────────────────────────────
       let pipelinesHTML = "";
       if (candidateReferrals.length > 0) {
-        let refsHTML = "";
+        let cardsHTML = "";
         for (const r of candidateReferrals) {
           const connStatus = r.connection_status || "Pending";
-          const refStatus  = r.status || "";
+          const refStatus  = r.status || "Logged";
           const connBadge  = connStatus === "Connected" ? "badge-green" : "badge-orange";
-          const refBadge   = refStatus === "Referred" ? "badge-green"
+          const refBadge   = refStatus === "Referred"  ? "badge-green"
                            : refStatus === "Messaged"  ? "badge-blue"
+                           : refStatus === "Follow-Up" ? "badge-blue"
                            : "badge-gray";
-          refsHTML += `
-            <div style="background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;">
-              <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px;">${safe(r.company_name)}</div>
-              <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${safe(r.role_title)}</div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <span class="badge ${connBadge}">&#128279; ${connStatus}</span>
-                ${refStatus ? `<span class="badge ${refBadge}">&#128203; ${refStatus}</span>` : ''}
+
+          // Connection status row — show "Mark Connected" only when Pending
+          const connActionHTML = connStatus === "Pending"
+            ? `<button
+                 class="ri-action-btn"
+                 data-action="conn"
+                 data-profile-id="${r.profile_id}"
+                 data-new-status="Connected"
+               >&#10003; Mark Connected</button>`
+            : `<span style="font-size:11px;color:var(--muted);">&#10003; Connected</span>`;
+
+          // Referral status row — sequential next-step button
+          let refActionHTML = "";
+          if (refStatus === "Logged" || refStatus === "Follow-Up") {
+            refActionHTML = `<button
+                class="ri-action-btn"
+                data-action="ref"
+                data-referral-id="${r.referral_id}"
+                data-new-status="Messaged"
+              >&#x1F4AC; Mark Messaged</button>`;
+          } else if (refStatus === "Messaged") {
+            refActionHTML = `<button
+                class="ri-action-btn ri-action-btn-green"
+                data-action="ref"
+                data-referral-id="${r.referral_id}"
+                data-new-status="Referred"
+              >&#x1F389; Got Referral!</button>`;
+          } else if (refStatus === "Referred") {
+            refActionHTML = `<span style="font-size:11px;color:var(--muted);">&#10003; Referred</span>`;
+          }
+
+          cardsHTML += `
+            <div class="ri-pipeline-card" data-referral-id="${r.referral_id}">
+              <div style="margin-bottom:10px;">
+                <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:1px;">${safe(r.company_name)}</div>
+                <div style="font-size:12px;color:var(--muted);">${safe(r.role_title)}</div>
               </div>
+              <div class="ri-status-row">
+                <div class="ri-status-group">
+                  <span class="badge ${connBadge}">&#128279; ${connStatus}</span>
+                  <div class="ri-action-area" data-for="conn-${r.referral_id}">${connActionHTML}</div>
+                </div>
+                <div class="ri-status-group">
+                  <span class="badge ${refBadge}">&#128203; ${refStatus}</span>
+                  <div class="ri-action-area" data-for="ref-${r.referral_id}">${refActionHTML}</div>
+                </div>
+              </div>
+              <div class="ri-card-feedback" id="ri-card-msg-${r.referral_id}" style="display:none;"></div>
             </div>`;
         }
+
         pipelinesHTML = `
           <div style="margin-bottom:24px;">
             <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em;">Active Pipelines</div>
-            ${refsHTML}
+            ${cardsHTML}
           </div>
           <div style="width:100%;height:1px;background:var(--line);margin-bottom:24px;"></div>`;
       }
 
-      // ── Pre-fill with latest job ──────────────────────────────────
+      // ── Pre-fill with latest job ──────────────────────────────────────
       const latestJob    = initialJobs.length > 0 ? initialJobs[0] : null;
       const latestJobStr = latestJob
         ? `${latestJob.company_name || 'Unknown'} - ${latestJob.role_title || 'Unknown'}`
         : "";
       const latestJobId  = latestJob ? String(latestJob.id) : "";
 
-      // ── Render the full form ──────────────────────────────────────
+      // ── Render the full panel ─────────────────────────────────────────
       panel.innerHTML = window.getPanelShell(`
         ${pipelinesHTML}
         <div style="margin-bottom:24px;">
@@ -166,7 +208,66 @@ function renderProfileContext(panel) {
         </div>
       `);
 
-      // ── Grab all elements by scoped panel.querySelector ───────────
+      // ── Wire up pipeline card action buttons ──────────────────────────
+      // Using event delegation on panel to avoid null-ref issues
+      panel.addEventListener("click", function onActionClick(e) {
+        const btn = e.target.closest(".ri-action-btn");
+        if (!btn) return;
+
+        const action     = btn.dataset.action;
+        const newStatus  = btn.dataset.newStatus;
+        const referralId = parseInt(btn.dataset.referralId, 10);
+        const profileId  = parseInt(btn.dataset.profileId, 10);
+
+        // Find the feedback area for this card
+        const card       = btn.closest(".ri-pipeline-card");
+        const cardRefId  = card ? card.dataset.referralId : null;
+        const feedbackEl = cardRefId ? panel.querySelector(`#ri-card-msg-${cardRefId}`) : null;
+        const actionArea = btn.parentElement; // the ri-action-area div
+
+        // Disable button and show spinner
+        btn.disabled = true;
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>`;
+
+        function onError(msg) {
+          btn.disabled = false;
+          btn.innerHTML = originalHTML;
+          if (feedbackEl) {
+            feedbackEl.innerText = msg || "Error. Try again.";
+            feedbackEl.style.display = "block";
+            feedbackEl.style.color   = "var(--red, #ef4444)";
+            feedbackEl.style.fontSize = "11px";
+            feedbackEl.style.marginTop = "6px";
+            setTimeout(() => { if (feedbackEl) feedbackEl.style.display = "none"; }, 3000);
+          }
+        }
+
+        if (action === "conn") {
+          // Update connection status via new endpoint
+          window.riSend(
+            { type: "UPDATE_CONNECTION_STATUS", payload: { profile_id: profileId, status: newStatus } },
+            (res, err) => {
+              if (err || !res || !res.success) { onError(err || (res && res.error)); return; }
+              // Remove the click listener before re-rendering to avoid stacking
+              panel.removeEventListener("click", onActionClick);
+              window.renderProfileContext(panel);
+            }
+          );
+        } else if (action === "ref") {
+          // Update referral status via existing endpoint
+          window.riSend(
+            { type: "UPDATE_REFERRAL_STATUS", payload: { referral_request_id: referralId, status: newStatus } },
+            (res, err) => {
+              if (err || !res || !res.success) { onError(err || (res && res.error)); return; }
+              panel.removeEventListener("click", onActionClick);
+              window.renderProfileContext(panel);
+            }
+          );
+        }
+      });
+
+      // ── Dropdown DOM references ───────────────────────────────────────
       const searchEl = panel.querySelector("#ri-prof-job-search");
       const menu     = panel.querySelector("#ri-prof-job-menu");
       const idInput  = panel.querySelector("#ri-prof-job-id");
@@ -174,10 +275,9 @@ function renderProfileContext(panel) {
       const btn      = panel.querySelector("#ri-prof-log-btn");
       const statusEl = panel.querySelector("#ri-status");
 
-      // Set pre-filled search text via JS (avoids HTML-encoding edge cases)
       if (searchEl && latestJobStr) searchEl.value = latestJobStr;
 
-      // ── Render job items into the dropdown menu ───────────────────
+      // ── Dropdown: render items ────────────────────────────────────────
       function renderItems(jobs) {
         if (!menu) return;
         menu.innerHTML = "";
@@ -197,7 +297,7 @@ function renderProfileContext(panel) {
             <span class="ri-dropdown-item-title">${label}</span>
             <span class="ri-dropdown-item-date">${dateStr}</span>`;
           div.addEventListener("mousedown", (e) => {
-            e.preventDefault(); // prevent blur closing menu before selection registers
+            e.preventDefault();
             if (idInput)  idInput.value  = String(job.id);
             if (searchEl) searchEl.value = label;
             if (menu)     menu.classList.remove("open");
@@ -209,13 +309,8 @@ function renderProfileContext(panel) {
       function openMenu()  { if (menu) menu.classList.add("open"); }
       function closeMenu() { if (menu) menu.classList.remove("open"); }
 
-      // Show the 3 pre-fetched jobs instantly (no network round-trip)
-      function showInitialDropdown() {
-        renderItems(initialJobs);
-        openMenu();
-      }
+      function showInitialDropdown() { renderItems(initialJobs); openMenu(); }
 
-      // Debounced live search via API
       let searchTimer = null;
       function searchJobs(query) {
         if (searchTimer) clearTimeout(searchTimer);
@@ -234,46 +329,31 @@ function renderProfileContext(panel) {
         searchEl.addEventListener("focus", () => {
           searchEl.select();
           const val = searchEl.value.trim();
-          // Show top-3 if empty or still showing the auto-selected job
-          if (!val || val === latestJobStr) {
-            showInitialDropdown();
-          } else {
-            searchJobs(val);
-          }
+          if (!val || val === latestJobStr) { showInitialDropdown(); } else { searchJobs(val); }
         });
-
         searchEl.addEventListener("input", (e) => {
           const val = e.target.value.trim();
-          if (!val) {
-            showInitialDropdown();
-          } else {
-            searchJobs(val);
-          }
+          if (!val) { showInitialDropdown(); } else { searchJobs(val); }
         });
-
-        // Close menu when clicking outside the dropdown wrapper
-        // Scoped to panel (not document) to avoid stale listener leaks on re-render
         panel.addEventListener("click", (e) => {
-          if (dropdown && !dropdown.contains(e.target)) {
-            closeMenu();
-          }
+          if (dropdown && !dropdown.contains(e.target)) closeMenu();
         });
       }
 
-      // ── Log Candidate ─────────────────────────────────────────────
+      // ── Log Candidate button ──────────────────────────────────────────
       if (btn && statusEl) {
         btn.addEventListener("click", () => {
           const job_id        = idInput ? parseInt(idInput.value, 10) : 0;
           const nameEl        = panel.querySelector("#ri-prof-name");
           const roleEl        = panel.querySelector("#ri-prof-role");
           const compEl        = panel.querySelector("#ri-prof-company");
-          const final_name    = nameEl    ? nameEl.value.trim()    : "";
-          const final_role    = roleEl    ? roleEl.value.trim()    : "";
-          const final_company = compEl    ? compEl.value.trim()    : "";
+          const final_name    = nameEl ? nameEl.value.trim()    : "";
+          const final_role    = roleEl ? roleEl.value.trim()    : "";
+          const final_company = compEl ? compEl.value.trim()    : "";
 
           if (isNaN(job_id) || job_id === 0) {
-            statusEl.innerText  = "Please select a valid role from the dropdown.";
-            statusEl.className  = "ri-status ri-error";
+            statusEl.innerText = "Please select a valid role from the dropdown.";
+            statusEl.className = "ri-status ri-error";
             return;
           }
           if (!final_name) {
@@ -282,9 +362,9 @@ function renderProfileContext(panel) {
             return;
           }
 
-          btn.disabled        = true;
-          statusEl.innerHTML  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Logging candidate...`;
-          statusEl.className  = "ri-status ri-loading";
+          btn.disabled       = true;
+          statusEl.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> Logging candidate...`;
+          statusEl.className = "ri-status ri-loading";
 
           window.riSend({
             type: "LOG_OUTREACH",
@@ -315,7 +395,7 @@ function renderProfileContext(panel) {
         });
       }
     }); // end FETCH_JOBS
-  }); // end FETCH_DASHBOARD
+  }); // end FETCH_PROFILE_REFERRALS
 }
 
 window.renderProfileContext = renderProfileContext;

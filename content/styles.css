@@ -225,3 +225,75 @@
   border-radius: 4px;
   animation: ri-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* ── New Pipeline Card Styles ── */
+.ri-pipeline-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.ri-status-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ri-status-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-orange { background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; }
+.badge-green { background: #f0fdf4; color: #15803d; border: 1px solid #dcfce3; }
+.badge-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; }
+.badge-gray { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+
+.ri-action-btn {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  font-family: 'Inter', sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ri-action-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+.ri-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ri-action-btn-green {
+  border-color: #86efac;
+  color: #166534;
+  background: #f0fdf4;
+}
+.ri-action-btn-green:hover {
+  background: #dcfce3;
+  border-color: #4ade80;
+}
+.ri-card-feedback {
+  margin-top: 8px;
+  font-size: 11px;
+  text-align: right;
+}

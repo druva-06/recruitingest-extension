@@ -10,6 +10,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.type === "UPDATE_CONNECTION_STATUS") {
+    fetch(`${API_BASE}/crm/profile/connection-status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(request.payload)
+    })
+      .then(res => res.json())
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (request.type === "FETCH_DASHBOARD") {
     fetch(`${API_BASE}/crm/dashboard`, { credentials: "include" })
       .then(res => res.json())
