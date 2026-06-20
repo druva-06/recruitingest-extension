@@ -78,11 +78,16 @@ function renderPanelContext() {
       // Show Sign In Wall
       panel.innerHTML = getPanelShell(`
         <div class="ri-auth-wall">
-          <div class="ri-auth-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <div class="ri-brand-container">
+            <div class="ri-brand">
+              <span class="ri-brand-mark">
+                <span></span><span></span><span></span>
+              </span>
+              <span>Recruit<span style="color:#176b4a;">Ingest</span></span>
+            </div>
           </div>
           <h2 class="ri-auth-title">Sign In Required</h2>
-          <p class="ri-auth-desc">Please sign in to your RecruitIngest account to use the extension.</p>
+          <p class="ri-auth-desc">Please sign in to your account to use the extension features.</p>
           <a href="http://localhost:5173/" target="_blank" class="ri-btn-signin" style="text-decoration:none;">
             Sign In to RecruitIngest
           </a>
