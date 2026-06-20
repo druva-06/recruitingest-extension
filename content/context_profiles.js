@@ -141,8 +141,15 @@ function renderProfileContext(panel) {
           cardsHTML += `
             <div class="ri-pipeline-card" data-referral-id="${r.referral_id}">
               <div style="margin-bottom:10px;">
-                <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:1px;">${safe(r.company_name)}</div>
-                <div style="font-size:12px;color:var(--muted);">${safe(r.role_title)}</div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                  <div>
+                    <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:1px;">${safe(r.company_name)}</div>
+                    <div style="font-size:12px;color:var(--muted);">${safe(r.role_title)}</div>
+                  </div>
+                  <button class="ri-action-btn" data-action="copy_msg" data-referral-id="${r.referral_id}" data-profile-name="${safe(profile_name)}" data-company-name="${safe(r.company_name)}" data-role-title="${safe(r.role_title)}" data-job-url="${safe(r.job_url)}" title="Copy Outreach Message" style="padding:4px; margin-top:-2px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </button>
+                </div>
               </div>
               <div class="ri-status-row">
                 <div class="ri-status-group">
@@ -264,6 +271,41 @@ function renderProfileContext(panel) {
               window.renderProfileContext(panel);
             }
           );
+        } else if (action === "copy_msg") {
+          // Copy outreach message to clipboard
+          const candName = btn.dataset.profileName || "";
+          const company  = btn.dataset.companyName || "";
+          const role     = btn.dataset.roleTitle || "";
+          const jobUrl   = btn.dataset.jobUrl || "";
+          
+          window.riSend({ type: "FETCH_MESSAGE_TEMPLATE" }, (res, err) => {
+            if (err || !res || !res.success) { onError(err || (res && res.error)); return; }
+            
+            let template = res.data.linkedin_outreach_prompt;
+            if (!template) {
+              template = `Hi {{CandidateName}}, Hope all is well with you! I came across the {{RoleTitle}} Full-Time Opportunity at {{CompanyName}} and am interested in applying. Would you be open to submitting a referral for me to go with my application? Happy to chat more if you have the time as well. Looking forward to hearing from you.\n\n--- Follow the link below to review\n{{JobURL}}\n\n{{ResumeLink}}`;
+            }
+            const driveLink = res.data.drive_link || "[Please configure your Google Drive resume link in settings]";
+            
+            let message = template
+              .replace(/\{\{CandidateName\}\}/g, candName)
+              .replace(/\{\{RoleTitle\}\}/g, role)
+              .replace(/\{\{CompanyName\}\}/g, company)
+              .replace(/\{\{JobURL\}\}/g, jobUrl)
+              .replace(/\{\{ResumeLink\}\}/g, driveLink);
+              
+            navigator.clipboard.writeText(message).then(() => {
+              btn.disabled = false;
+              btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+              btn.style.color = "#166534";
+              setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.style.color = "";
+              }, 2000);
+            }).catch(e => {
+              onError("Failed to copy to clipboard");
+            });
+          });
         }
       });
 
