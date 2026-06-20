@@ -67,20 +67,14 @@ function renderPanelContext() {
   const panel = document.getElementById("ri-panel");
   const url = window.location.href;
 
-  if (url.includes("/jobs/") && window.renderJobContext) {
-    window.renderJobContext(panel);
-  } else if (url.includes("/in/") && window.renderProfileContext) {
+  const isLinkedIn = url.includes("linkedin.com");
+
+  if (isLinkedIn && url.includes("/in/") && window.renderProfileContext) {
     window.renderProfileContext(panel);
-  } else if (url.includes("/mynetwork/invite-connect/connections") && window.renderConnectionsContext) {
+  } else if (isLinkedIn && url.includes("/mynetwork/invite-connect/connections") && window.renderConnectionsContext) {
     window.renderConnectionsContext(panel);
-  } else {
-    panel.innerHTML = getPanelShell(`
-      <div class="ri-title-context">Awaiting Context</div>
-      <div class="ri-subtitle">Navigate to a LinkedIn Profile, a Job Posting, or your Connections page to automatically activate the CRM.</div>
-      <div style="text-align: center; color: #9ca3af; margin-top: 20px;">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-      </div>
-    `);
+  } else if (window.renderJobContext) {
+    window.renderJobContext(panel);
   }
 }
 
