@@ -90,7 +90,7 @@ function renderPanelContext() {
           </div>
           <h2 class="ri-auth-title">Sign In Required</h2>
           <p class="ri-auth-desc">Please sign in to your account to use the extension features.</p>
-          <a href="http://localhost:5173/" target="_blank" class="ri-btn-signin" style="text-decoration:none;">
+          <a href="${window.RI_ENV_CONFIG.FRONTEND_URL}" target="_blank" class="ri-btn-signin" style="text-decoration:none;">
             Sign In to RecruitIngest
           </a>
         </div>

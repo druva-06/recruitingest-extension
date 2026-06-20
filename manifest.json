@@ -24,6 +24,7 @@
   ],
   "host_permissions": [
     "http://localhost:8080/*",
+    "https://recruiter.orbitaryai.com/*",
     "https://*.linkedin.com/*"
   ],
   "background": {
@@ -34,6 +35,7 @@
       "matches": ["<all_urls>"],
       "css": ["content/styles.css"],
       "js": [
+        "content/config.js",
         "content/ui_core.js",
         "content/context_jobs.js",
         "content/context_profiles.js",

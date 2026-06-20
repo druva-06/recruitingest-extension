@@ -160,7 +160,7 @@ function renderJobContext(panel) {
           </div>
         </div>
 
-        <a href="http://localhost:5173/#linkedin_crm" target="_blank" class="ri-btn" style="text-align: center; text-decoration: none; display: block; background: #fff; color: var(--ink); border: 1px solid var(--line);">
+        <a href="${window.RI_ENV_CONFIG.FRONTEND_URL}#linkedin_crm" target="_blank" class="ri-btn" style="text-align: center; text-decoration: none; display: block; background: #fff; color: var(--ink); border: 1px solid var(--line);">
           Open CRM Dashboard ↗
         </a>
       `);

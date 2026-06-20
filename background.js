@@ -1,4 +1,5 @@
-const API_BASE = "http://localhost:8080/api/v1";
+importScripts("content/config.js");
+const API_BASE = self.RI_ENV_CONFIG.API_BASE;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "FETCH_PROFILE_REFERRALS") {
