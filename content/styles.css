@@ -342,3 +342,55 @@
   margin-top: 0;
   pointer-events: none;
 }
+
+/* ── Auth Wall Styles ── */
+.ri-auth-wall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  background: #ffffff;
+  height: 100%;
+}
+.ri-auth-icon {
+  width: 48px;
+  height: 48px;
+  background: #f3f4f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: #6b7280;
+}
+.ri-auth-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+}
+.ri-auth-desc {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+.ri-btn-signin {
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ri-btn-signin:hover {
+  background: #1f2937;
+}

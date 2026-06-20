@@ -65,17 +65,44 @@ function getPanelShell(contentHTML) {
 
 function renderPanelContext() {
   const panel = document.getElementById("ri-panel");
-  const url = window.location.href;
+  
+  // Show a loading spinner while checking auth
+  panel.innerHTML = getPanelShell(`
+    <div style="display:flex; justify-content:center; align-items:center; height:200px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" class="spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+    </div>
+  `);
 
-  const isLinkedIn = url.includes("linkedin.com");
+  window.riSend({ type: "CHECK_AUTH" }, (res, err) => {
+    if (err || !res || !res.authenticated) {
+      // Show Sign In Wall
+      panel.innerHTML = getPanelShell(`
+        <div class="ri-auth-wall">
+          <div class="ri-auth-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <h2 class="ri-auth-title">Sign In Required</h2>
+          <p class="ri-auth-desc">Please sign in to your RecruitIngest account to use the extension.</p>
+          <a href="http://localhost:5173/" target="_blank" class="ri-btn-signin" style="text-decoration:none;">
+            Sign In to RecruitIngest
+          </a>
+        </div>
+      `);
+      return;
+    }
 
-  if (isLinkedIn && url.includes("/in/") && window.renderProfileContext) {
-    window.renderProfileContext(panel);
-  } else if (isLinkedIn && url.includes("/mynetwork/invite-connect/connections") && window.renderConnectionsContext) {
-    window.renderConnectionsContext(panel);
-  } else if (window.renderJobContext) {
-    window.renderJobContext(panel);
-  }
+    // Authenticated, proceed with normal rendering
+    const url = window.location.href;
+    const isLinkedIn = url.includes("linkedin.com");
+
+    if (isLinkedIn && url.includes("/in/") && window.renderProfileContext) {
+      window.renderProfileContext(panel);
+    } else if (isLinkedIn && url.includes("/mynetwork/invite-connect/connections") && window.renderConnectionsContext) {
+      window.renderConnectionsContext(panel);
+    } else if (window.renderJobContext) {
+      window.renderJobContext(panel);
+    }
+  });
 }
 
 // Make globally available for other scripts

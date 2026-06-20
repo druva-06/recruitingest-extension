@@ -10,6 +10,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.type === "CHECK_AUTH") {
+    fetch(`${API_BASE}/auth/me`, { credentials: "include" })
+      .then(res => {
+        if (res.ok) {
+          return res.json().then(data => sendResponse({ authenticated: true, user: data }));
+        } else {
+          return sendResponse({ authenticated: false });
+        }
+      })
+      .catch(err => sendResponse({ authenticated: false, error: err.message }));
+    return true;
+  }
+
   if (request.type === "FETCH_MESSAGE_TEMPLATE") {
     fetch(`${API_BASE}/crm/message-template`, { credentials: "include" })
       .then(res => res.json())
