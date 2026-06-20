@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "RecruitIngest",
   "version": "1.0",
-  "description": "The official browser extension for RecruitIngest.",
+  "description": "Seamlessly log job postings, sync profiles, and track networking outreach directly into your RecruitIngest CRM.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
