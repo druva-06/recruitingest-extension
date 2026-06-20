@@ -180,38 +180,46 @@ function renderProfileContext(panel) {
         : "";
       const latestJobId  = latestJob ? String(latestJob.id) : "";
 
+      const isCollapsed = candidateReferrals.length > 0;
+      const collapsedClass = isCollapsed ? "ri-collapsed" : "";
+
       // ── Render the full panel ─────────────────────────────────────────
       panel.innerHTML = window.getPanelShell(`
         ${pipelinesHTML}
-        <div style="margin-bottom:24px;">
-          <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em;">Log Outreach</div>
-          <div class="ri-form-group">
-            <label class="ri-label">Candidate Name</label>
-            <input id="ri-prof-name" class="ri-input" value="${safe(profile_name)}" autocomplete="off" />
+        <div id="ri-log-outreach-section" class="${collapsedClass}" style="margin-bottom:24px;">
+          <div class="ri-collapse-header" id="ri-log-outreach-header">
+            <span class="ri-collapse-title">Log Outreach</span>
+            <svg class="ri-collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
-          <div style="display:flex;gap:12px;margin-bottom:16px;">
-            <div class="ri-form-group" style="flex:1;margin-bottom:0;">
-              <label class="ri-label">Current Role</label>
-              <input id="ri-prof-role" class="ri-input" placeholder="e.g. Engineer" value="${safe(currentRole)}" autocomplete="off" />
+          <div class="ri-collapse-content">
+            <div class="ri-form-group">
+              <label class="ri-label">Candidate Name</label>
+              <input id="ri-prof-name" class="ri-input" value="${safe(profile_name)}" autocomplete="off" />
             </div>
-            <div class="ri-form-group" style="flex:1;margin-bottom:0;">
-              <label class="ri-label">Current Company</label>
-              <input id="ri-prof-company" class="ri-input" placeholder="e.g. Acme" value="${safe(currentCompany)}" autocomplete="off" />
+            <div style="display:flex;gap:12px;margin-bottom:16px;">
+              <div class="ri-form-group" style="flex:1;margin-bottom:0;">
+                <label class="ri-label">Current Role</label>
+                <input id="ri-prof-role" class="ri-input" placeholder="e.g. Engineer" value="${safe(currentRole)}" autocomplete="off" />
+              </div>
+              <div class="ri-form-group" style="flex:1;margin-bottom:0;">
+                <label class="ri-label">Current Company</label>
+                <input id="ri-prof-company" class="ri-input" placeholder="e.g. Acme" value="${safe(currentCompany)}" autocomplete="off" />
+              </div>
             </div>
+            <div class="ri-form-group">
+              <label class="ri-label">Role Pitching</label>
+              <div id="ri-prof-job-dropdown" style="position:relative;">
+                <input type="hidden" id="ri-prof-job-id" value="${safe(latestJobId)}" />
+                <input type="text" id="ri-prof-job-search" class="ri-input" placeholder="Select or search role..." autocomplete="off" />
+                <div id="ri-prof-job-menu" class="ri-dropdown-menu"></div>
+              </div>
+            </div>
+            <button id="ri-prof-log-btn" class="ri-btn ri-btn-primary" style="width:100%;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              Log Candidate
+            </button>
+            <div id="ri-status" class="ri-status"></div>
           </div>
-          <div class="ri-form-group">
-            <label class="ri-label">Role Pitching</label>
-            <div id="ri-prof-job-dropdown" style="position:relative;">
-              <input type="hidden" id="ri-prof-job-id" value="${safe(latestJobId)}" />
-              <input type="text" id="ri-prof-job-search" class="ri-input" placeholder="Select or search role..." autocomplete="off" />
-              <div id="ri-prof-job-menu" class="ri-dropdown-menu"></div>
-            </div>
-          </div>
-          <button id="ri-prof-log-btn" class="ri-btn ri-btn-primary" style="width:100%;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            Log Candidate
-          </button>
-          <div id="ri-status" class="ri-status"></div>
         </div>
       `);
 
@@ -308,6 +316,15 @@ function renderProfileContext(panel) {
           });
         }
       });
+
+      // ── Collapse Toggle ───────────────────────────────────────────────
+      const collapseHeader = panel.querySelector("#ri-log-outreach-header");
+      const collapseSection = panel.querySelector("#ri-log-outreach-section");
+      if (collapseHeader && collapseSection) {
+        collapseHeader.addEventListener("click", () => {
+          collapseSection.classList.toggle("ri-collapsed");
+        });
+      }
 
       // ── Dropdown DOM references ───────────────────────────────────────
       const searchEl = panel.querySelector("#ri-prof-job-search");
