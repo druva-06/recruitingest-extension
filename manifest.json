@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "RecruitIngest LinkedIn CRM",
+  "name": "RecruitIngest",
   "version": "1.0",
-  "description": "Log LinkedIn profiles and sync connection requests to your RecruitIngest CRM.",
+  "description": "The official browser extension for RecruitIngest.",
   "permissions": [
     "activeTab",
     "storage"
