@@ -144,7 +144,10 @@ function renderProfileContext(panel) {
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                   <div>
                     <div style="font-size:14px;font-weight:600;color:var(--ink);margin-bottom:1px;">${safe(r.company_name)}</div>
-                    <div style="font-size:12px;color:var(--muted);">${safe(r.role_title)}</div>
+                    <div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;">
+                      ${safe(r.role_title)}
+                      ${r.job_has_referral ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" title="Role Already Referred (by anyone)"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
+                    </div>
                   </div>
                   <button class="ri-action-btn" data-action="copy_msg" data-referral-id="${r.referral_id}" data-profile-name="${safe(profile_name)}" data-company-name="${safe(r.company_name)}" data-role-title="${safe(r.role_title)}" data-job-url="${safe(r.job_url)}" title="Copy Outreach Message" style="padding:4px; margin-top:-2px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -350,10 +353,11 @@ function renderProfileContext(panel) {
         for (const job of jobs) {
           const label   = `${job.company_name || 'Unknown'} - ${job.role_title || 'Unknown'}`;
           const dateStr = new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const tickSVG = job.has_referral ? '<svg width="14" height="14" viewBox="0 0 24 24" style="margin-left:4px;vertical-align:middle;" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" title="Role Already Referred (by anyone)"><polyline points="20 6 9 17 4 12"></polyline></svg>' : '';
           const div     = document.createElement("div");
           div.className = "ri-dropdown-item";
           div.innerHTML = `
-            <span class="ri-dropdown-item-title">${label}</span>
+            <span class="ri-dropdown-item-title" style="display:flex;align-items:center;">${label}${tickSVG}</span>
             <span class="ri-dropdown-item-date">${dateStr}</span>`;
           div.addEventListener("mousedown", (e) => {
             e.preventDefault();
